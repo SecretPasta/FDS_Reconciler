@@ -6,6 +6,7 @@ from typing import Any, cast
 import anthropic
 from anthropic import AsyncAnthropic
 from anthropic.types import (
+    Message,
     MessageParam,
     TextBlock,
     ToolChoiceToolParam,
@@ -42,23 +43,26 @@ class ClaudeClient:
         reraise=True,
     )
     async def generate(
-        self,
-        messages: list[dict[str, Any]],
-        *,
-        response_schema: type[BaseModel] | None = None,
-        max_tokens: int = 4096,
+            self,
+            messages: list[dict[str, Any]],
+            *,
+            response_schema: type[BaseModel] | None = None,
+            max_tokens: int = 4096,
     ) -> dict[str, Any]:
-        typed = cast(list[MessageParam], messages)
+        # Safely cast via Any to satisfy the type checker that the dict structure matches MessageParam
+        typed_messages = cast(list[MessageParam], cast(Any, messages))
+
         if response_schema is not None:
-            return await self._generate_structured(typed, response_schema, max_tokens)
-        return await self._generate_unstructured(typed, max_tokens)
+            return await self._generate_structured(typed_messages, response_schema, max_tokens)
+        return await self._generate_unstructured(typed_messages, max_tokens)
 
     async def _generate_unstructured(
-        self,
-        messages: list[dict[str, Any]],
-        max_tokens: int,
+            self,
+            messages: list[MessageParam],
+            max_tokens: int,
     ) -> dict[str, Any]:
-        response = await self._client.messages.create(
+        # Explicit variable type annotation instead of a cast function
+        response: Message = await self._client.messages.create(
             model=self._model,
             max_tokens=max_tokens,
             messages=messages,
@@ -67,10 +71,10 @@ class ClaudeClient:
         return {"content": text_block.text}
 
     async def _generate_structured(
-        self,
-        messages: list[dict[str, Any]],
-        response_schema: type[BaseModel],
-        max_tokens: int,
+            self,
+            messages: list[MessageParam],
+            response_schema: type[BaseModel],
+            max_tokens: int,
     ) -> dict[str, Any]:
         tool_name = response_schema.__name__
         tool: ToolParam = {
@@ -79,7 +83,9 @@ class ClaudeClient:
             "input_schema": response_schema.model_json_schema(),  # type: ignore[typeddict-item]
         }
         tool_choice: ToolChoiceToolParam = {"type": "tool", "name": tool_name}
-        response = await self._client.messages.create(
+
+        # Explicit variable type annotation instead of a cast function
+        response: Message = await self._client.messages.create(
             model=self._model,
             max_tokens=max_tokens,
             messages=messages,
