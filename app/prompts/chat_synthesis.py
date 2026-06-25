@@ -2,23 +2,47 @@ from __future__ import annotations
 
 from app.chat.retriever import RetrievedChunk
 
-_SINGLE_DOC_INSTRUCTIONS = """\
-- Answer ONLY from the provided context. Do not use prior knowledge.
-- Cite every factual claim inline: [filename · §section · page N].
-- In the citations list, provide each citation as a plain string in the exact \
-format "filename · §section · page N" (omit " · page N" if the page is unknown).
-- If the context is insufficient to answer, set insufficient_context to true \
-and explain you couldn't find the information in the document."""
+_BINARY_RULE = """\
+This is a strict binary choice — never mix the two branches:
 
-_CROSS_DOC_INSTRUCTIONS = """\
-- Answer ONLY from the provided context. Do not use prior knowledge.
-- Cite every factual claim inline: [filename · §section · page N].
-- In the citations list, provide each citation as a plain string in the exact \
-format "filename · §section · page N" (omit " · page N" if the page is unknown).
-- When answering comparative questions, attribute each claim to its source \
-document (V0 or V5) so the distinction is clear.
-- If the context is insufficient to answer, set insufficient_context to true \
-and explain you couldn't find the information in either document."""
+  BRANCH A — context contains relevant information (even partial):
+    • Set insufficient_context = false.
+    • Provide a substantive answer grounded in the context.
+    • Cite every factual claim inline: [filename · §section · page N].
+    • Populate the citations list with plain strings in the exact format
+      "filename · §section · page N" (omit " · page N" if page is unknown).
+
+    Example output:
+      answer: "The three processing stages are intake, validation, and output.
+               [doc.pdf · §3.1 · page 4]"
+      citations: ["doc.pdf · §3.1 · page 4"]
+      insufficient_context: false
+
+  BRANCH B — context does NOT contain information to answer the question:
+    • Set insufficient_context = true.
+    • Write a brief refusal: "I couldn't find this in the document."
+    • Leave the citations list empty.
+    • Do NOT speculate, summarise unrelated content, or give a partial answer.
+
+    Example output:
+      answer: "I couldn't find information about that topic in the document."
+      citations: []
+      insufficient_context: true
+
+Never set insufficient_context = true while also providing a substantive answer
+or populating citations."""
+
+_SINGLE_DOC_INSTRUCTIONS = (
+    "Answer ONLY from the provided context. Do not use prior knowledge.\n\n"
+    + _BINARY_RULE
+)
+
+_CROSS_DOC_INSTRUCTIONS = (
+    "Answer ONLY from the provided context. Do not use prior knowledge.\n"
+    "When answering comparative questions, attribute each claim to its source "
+    "document (V0 or V5) so the distinction is clear.\n\n"
+    + _BINARY_RULE
+)
 
 
 def build_single_doc_prompt(query: str, chunks: list[RetrievedChunk]) -> str:

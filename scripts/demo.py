@@ -100,7 +100,7 @@ def run_chat_single_a(client: httpx.Client) -> None:
 
 
 def run_chat_single_b(client: httpx.Client) -> None:
-    query = "What new features or sections were introduced in this version?"
+    query = "How does the Configuration-Driven Price Book Engine work?"
     _header("POST /chat/single  (doc_id=B — DOCX)")
     print(f"  Q: {query}")
     resp = client.post(
