@@ -32,5 +32,3 @@ Thumbs.db
 # Project-specific
 /outputs/
 /.cache/
-samples/*.pdf
-samples/*.docx
