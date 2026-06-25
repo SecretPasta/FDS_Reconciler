@@ -43,15 +43,21 @@ class GeminiClient:
     ) -> dict[str, Any]:
         contents = _to_contents(messages)
 
+        # Disable Automatic Function Calling — it can silently consume responses
+        # when multiple genai.Client instances run concurrently in asyncio.gather.
+        no_afc = types.AutomaticFunctionCallingConfig(disable=True)
+
         if response_schema is not None:
             config = types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
                 response_schema=response_schema,
+                automatic_function_calling=no_afc,
             )
         else:
             config = types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
+                automatic_function_calling=no_afc,
             )
 
         response = await self._client.aio.models.generate_content(
@@ -61,6 +67,16 @@ class GeminiClient:
         )
 
         text = response.text
+        if text is None:
+            # Thinking models (e.g. gemini-2.5-flash) return thought parts separately;
+            # skip those and join only the non-thought text parts.
+            if response.candidates:
+                parts = response.candidates[0].content.parts or []
+                text = "".join(
+                    p.text
+                    for p in parts
+                    if getattr(p, "text", None) and not getattr(p, "thought", False)
+                ) or None
         if text is None:
             raise ValueError("Gemini returned an empty response")
         if response_schema is not None:
