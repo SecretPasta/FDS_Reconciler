@@ -189,7 +189,7 @@ For comparative questions the pipeline performs **dual retrieval** — two paral
 
 Claude Sonnet 4.6 scores **Elo 1633 on the GPQA Diamond benchmark**, leading all models on expert-level knowledge work. More practically for this task: it has the strongest structured-output reliability via tool-use — the judge, explainer, and ranker all return strict Pydantic schemas via `tool_choice: {type: "tool"}`, and Claude is the least likely to return `{}` or hallucinate extra fields.
 
-### Gemini 2.5 Flash — chat synthesis
+### Gemini 3.5 Flash — chat synthesis
 
 Chat synthesis is a grounded RAG task: the context is provided, the model just needs to follow instructions (cite everything, refuse if insufficient, attribute by source). Gemini 2.5 Flash is cheap, fast, and has a 1M-token context window — well-suited for assembling two labeled context blocks and producing a cited answer. It handles `response_schema` natively without tool-use overhead.
 
@@ -204,6 +204,12 @@ Chat synthesis is a grounded RAG task: the context is provided, the model just n
 Pinecone is **mandated** for this project. The implementation uses a **single index with `doc_id` metadata filtering** rather than splitting documents into separate namespaces or indexes.
 
 **Rationale:** A namespace split would require two separate query calls anyway (same cost), but would make cross-document unfiltered fallback queries impossible. Keeping both documents in one namespace lets the fallback path do a genuine cross-corpus sweep. Metadata filters in Pinecone Serverless are evaluated at the pod level with negligible latency overhead at ~50-page scale.
+
+---
+
+## Notes on the sample comparison output
+
+The comparison produced 0 MATCH entries because V5 represents a substantial rewrite rather than an incremental revision. Almost every section that aligned to a V0 counterpart was replaced with new content while preserving section numbering — examples include §9 (a 9-dimension comparison table replaced with a narrative paragraph), §11 ("Success Criteria" replaced with "Decisions Required" — different topic entirely), and §8.1 (a Visual Dashboard replaced with a QA Automation Script). I sampled the DIFF entries to verify the pairwise judge wasn't over-firing on paraphrases; in each case the underlying content genuinely differs. On more incremental version pairs (e.g., a patch release), MATCH would populate more heavily and exercise all three categories.
 
 ---
 

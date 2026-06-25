@@ -19,6 +19,9 @@ _BOLD_FLAG = 1 << 4  # PyMuPDF span flags bit 4
 
 # ── public entry point ────────────────────────────────────────────────────────
 
+_MIN_BODY_CHARS = 50
+
+
 def parse_pdf(path: Path, doc_id: str) -> ParsedDoc:
     doc = fitz.open(str(path))
     try:
@@ -26,7 +29,17 @@ def parse_pdf(path: Path, doc_id: str) -> ParsedDoc:
         sections = _extract_sections(doc, path, doc_id, median_size)
     finally:
         doc.close()
+    sections = [s for s in sections if _has_content(s)]
     return ParsedDoc(doc_id=doc_id, filename=path.name, sections=sections)
+
+
+def _has_content(section: Section) -> bool:
+    """Reject cover-page artifacts: sections with no prose, no tables, and no bullets."""
+    return (
+        len(section.body_text.strip()) >= _MIN_BODY_CHARS
+        or bool(section.tables)
+        or bool(section.bullets)
+    )
 
 
 # ── section extraction ────────────────────────────────────────────────────────

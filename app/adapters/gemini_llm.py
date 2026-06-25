@@ -47,17 +47,25 @@ class GeminiClient:
         # when multiple genai.Client instances run concurrently in asyncio.gather.
         no_afc = types.AutomaticFunctionCallingConfig(disable=True)
 
+        # Disable thinking — this client is used for grounded RAG synthesis where
+        # the context is provided explicitly. Thinking tokens consume from the
+        # max_output_tokens budget; leaving thinking enabled causes the model to
+        # spend ~3700 tokens on internal reasoning and truncate the JSON output.
+        no_think = types.ThinkingConfig(thinking_budget=0)
+
         if response_schema is not None:
             config = types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
                 response_schema=response_schema,
                 automatic_function_calling=no_afc,
+                thinking_config=no_think,
             )
         else:
             config = types.GenerateContentConfig(
                 max_output_tokens=max_tokens,
                 automatic_function_calling=no_afc,
+                thinking_config=no_think,
             )
 
         response = await self._client.aio.models.generate_content(
