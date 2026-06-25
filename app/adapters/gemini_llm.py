@@ -66,19 +66,25 @@ class GeminiClient:
             config=config,
         )
 
-        text = response.text
-        if text is None:
-            # Thinking models (e.g. gemini-2.5-flash) return thought parts separately;
-            # skip those and join only the non-thought text parts.
-            if response.candidates:
-                parts = response.candidates[0].content.parts or []
-                text = "".join(
-                    p.text
-                    for p in parts
-                    if getattr(p, "text", None) and not getattr(p, "thought", False)
-                ) or None
-        if text is None:
+        # Type guard: Ensure candidate and content are fully present
+        if not response.candidates or response.candidates[0].content is None:
+            raise ValueError("Gemini returned an empty response (no candidates or content)")
+
+        content = response.candidates[0].content
+        if not content.parts:
+            raise ValueError("Gemini returned an empty response (no parts present)")
+
+        # Gather text content while safely ignoring thinking/thought process blocks
+        text_parts = []
+        for p in content.parts:
+            if getattr(p, "text", None) and not getattr(p, "thought", False):
+                text_parts.append(p.text)
+
+        text = "".join(text_parts).strip()
+
+        if not text:
             raise ValueError("Gemini returned an empty response")
+
         if response_schema is not None:
             return json.loads(text)
         return {"content": text}
