@@ -26,18 +26,28 @@ uv run uvicorn app.main:app --reload
 ### Docker
 
 ```bash
-# Build and start (reads .env automatically)
+# 1. Build and start (reads .env automatically)
 docker compose up --build
+
+# 2. In a second terminal — run the containerized demo
+#    (passes /app/samples/* paths that exist inside the container)
+python scripts/containerized_demo.py
 ```
 
 The API is available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-### Demo script
+### Demo script (local / native)
 
-With the server running, exercise all endpoints end-to-end:
+With the server running locally, exercise all endpoints end-to-end:
 
 ```bash
 python scripts/demo.py
+```
+
+Skipping the comparison step if you already ran it this session:
+
+```bash
+python scripts/demo.py --skip-compare
 ```
 
 ---
