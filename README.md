@@ -191,7 +191,7 @@ Claude Sonnet 4.6 scores **Elo 1633 on the GPQA Diamond benchmark**, leading all
 
 ### Gemini 3.5 Flash — chat synthesis
 
-Chat synthesis is a grounded RAG task: the context is provided, the model just needs to follow instructions (cite everything, refuse if insufficient, attribute by source). Gemini 2.5 Flash is cheap, fast, and has a 1M-token context window — well-suited for assembling two labeled context blocks and producing a cited answer. It handles `response_schema` natively without tool-use overhead.
+Chat synthesis is a grounded RAG task: the context is provided, the model just needs to follow instructions (cite everything, refuse if insufficient, attribute by source). Gemini 3.5 Flash is cheap, fast, and has a 1M-token context window — well-suited for assembling two labeled context blocks and producing a cited answer. It handles `response_schema` natively without tool-use overhead.
 
 ### gemini-embedding-001 — all embeddings (768d)
 
