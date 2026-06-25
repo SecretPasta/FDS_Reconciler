@@ -40,8 +40,8 @@ packages = ["app"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
 ]
