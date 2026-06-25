@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, Optional, Tuple, Union
 
-from docx import Document
+from docx import Document as open_docx
+from docx.document import Document
 from docx.oxml.ns import qn
 from docx.table import Table as DocxTable
 from docx.text.paragraph import Paragraph as DocxParagraph
@@ -21,7 +22,7 @@ _w_tbl = qn('w:tbl')
 # ── public entry point ────────────────────────────────────────────────────────
 
 def parse_docx(path: Path, doc_id: str) -> ParsedDoc:
-    doc = Document(str(path))
+    doc = open_docx(str(path))
     sections = _extract_sections(doc, path, doc_id)
     return ParsedDoc(doc_id=doc_id, filename=path.name, sections=sections)
 
