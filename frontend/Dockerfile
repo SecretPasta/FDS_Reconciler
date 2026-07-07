@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Dependency layer — cached unless pyproject.toml changes
 COPY pyproject.toml ./
-RUN uv sync --no-dev --no-install-project
+RUN uv sync --no-dev
 
 # Application code
 COPY . .
