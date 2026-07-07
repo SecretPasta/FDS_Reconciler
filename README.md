@@ -40,19 +40,33 @@ python scripts/containerized_demo.py
 
 The API is available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
 
-### Demo script (local / native)
+### Running the demo (local / native)
 
-With the server running locally, exercise all endpoints end-to-end:
+**`scripts/demo.py`** — non-interactive, exercises all endpoints in sequence and exits. Good for a
+quick sanity-check or CI smoke test.
 
 ```bash
 python scripts/demo.py
-```
 
-Skipping the comparison step if you already ran it this session:
-
-```bash
+# Skip /compare if the pipeline already ran this session
 python scripts/demo.py --skip-compare
 ```
+
+**`scripts/demo_live.py`** — interactive REPL with a menu, ideal for live presentations. Starts with
+a startup check (server reachability + Pinecone index state), then loops until you quit.
+
+```bash
+python scripts/demo_live.py
+
+# Override server URL or document paths
+python scripts/demo_live.py --base-url http://localhost:8000 \
+    --pdf samples/FDS_PriceBook_V0.pdf \
+    --docx samples/FDS_PriceBook_V5.docx
+```
+
+Menu options: run `/compare`, show the cached top-10 summary, ask single-doc or cross-doc
+questions, and view match/diff/missing counts. Ctrl+C returns to the menu; `q` or Ctrl+D exits
+cleanly and prints the total number of API calls made during the session.
 
 ---
 
