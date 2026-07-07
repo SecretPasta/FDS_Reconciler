@@ -10,6 +10,8 @@ from fastapi import FastAPI
 
 from app.api.routes_chat import router as chat_router
 from app.api.routes_compare import router as compare_router
+from app.api.routes_logs import attach_log_handler
+from app.api.routes_logs import router as logs_router
 from app.deps import get_app_settings, get_gemini_embedder, get_pinecone_store
 
 _LOGGING = {
@@ -52,6 +54,7 @@ async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
 def create_app() -> FastAPI:
     logging.config.dictConfig(_LOGGING)
+    attach_log_handler()
 
     fds_app = FastAPI(
         title="FDS Reconciler",
@@ -62,6 +65,7 @@ def create_app() -> FastAPI:
 
     fds_app.include_router(compare_router)
     fds_app.include_router(chat_router)
+    fds_app.include_router(logs_router)
 
     return fds_app
 
