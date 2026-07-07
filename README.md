@@ -42,6 +42,30 @@ docker compose up --build
 
 The frontend container waits for the backend health check before starting.
 
+**Logs / stop:**
+
+```bash
+docker compose logs -f
+docker compose down
+```
+
+**Building/running each service individually** (without compose):
+
+```bash
+# Backend
+docker build -t fds-backend .
+docker run -d --name fds-backend -p 8000:8000 --env-file .env fds-backend
+
+# Frontend
+docker build -t fds-frontend ./frontend
+docker run -d --name fds-frontend -p 8501:8501 --env-file .env \
+  -e BACKEND_URL=http://host.docker.internal:8000 fds-frontend
+```
+
+> `host.docker.internal` is needed here because standalone containers don't share compose's
+> network; `docker compose up` wires this automatically via the `fds-net` network and
+> `depends_on: service_healthy`.
+
 To run the containerized demo script (headless, exercises all endpoints):
 
 ```bash
