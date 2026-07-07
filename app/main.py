@@ -39,6 +39,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Prime the Pinecone connection on startup so the first real request is fast."""
+    # Re-attach here (not just in create_app) because uvicorn calls its own
+    # logging.config.dictConfig after the app module is imported, which wipes
+    # any handlers we added at import time.
+    attach_log_handler()
     try:
         settings = get_app_settings()
         store    = get_pinecone_store(settings)

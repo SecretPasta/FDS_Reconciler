@@ -1,13 +1,15 @@
 """Log ring-buffer, SSE stream, and polling endpoint.
 
-Attach attach_log_handler() in create_app() so all app logs flow into the
-in-memory buffer and are available to connected clients.
+The ring-buffer handler is attached at module import time AND survives any
+subsequent logging.config.dictConfig() call (uvicorn calls its own dictConfig
+after our app module is imported, which would otherwise wipe our handler).
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import logging.config as _logging_config
 from collections import deque
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
@@ -27,6 +29,8 @@ def _category(name: str, level: str) -> str:
     if level in ("ERROR", "CRITICAL"):
         return "error"
     n = name.lower()
+    if "uvicorn" in n:
+        return "other"
     if "retriev" in n:
         return "retrieval"
     if any(x in n for x in ("llm", "claude", "gemini", "chat.graph", "chat.synth")):
@@ -55,16 +59,11 @@ class _RingBufferHandler(logging.Handler):
                 "category": _category(record.name, record.levelname),
             }
             _ring_buffer.append(entry)
-            dead: list[asyncio.Queue] = []
-            for q in _subscribers:
+            for q in list(_subscribers):
                 try:
                     q.put_nowait(entry)
-                except asyncio.QueueFull:
-                    pass
-                except Exception:  # noqa: BLE001
-                    dead.append(q)
-            for q in dead:
-                _subscribers.discard(q)
+                except (asyncio.QueueFull, Exception):  # noqa: BLE001
+                    _subscribers.discard(q)
         except Exception:  # noqa: BLE001
             self.handleError(record)
 
@@ -72,12 +71,38 @@ class _RingBufferHandler(logging.Handler):
 _handler = _RingBufferHandler(level=logging.DEBUG)
 
 
-def attach_log_handler() -> None:
-    """Install the ring-buffer handler on the root logger. Safe to call multiple times."""
-    root = logging.getLogger()
-    if _handler not in root.handlers:
-        root.addHandler(_handler)
+def _reattach() -> None:
+    """Add _handler to root and any non-propagating loggers we care about."""
+    for name in ("", "uvicorn.access", "uvicorn.error", "uvicorn"):
+        lg = logging.getLogger(name)
+        if _handler not in lg.handlers:
+            lg.addHandler(_handler)
 
+
+# ── survive any logging.config.dictConfig() call made after this module loads ─
+# Uvicorn (and our own create_app) call dictConfig which replaces root handlers.
+# Wrapping dictConfig guarantees our handler is re-added after every such call.
+
+_orig_dictConfig = _logging_config.dictConfig
+
+
+def _patched_dictConfig(config: dict) -> None:  # type: ignore[override]
+    _orig_dictConfig(config)
+    _reattach()
+
+
+_logging_config.dictConfig = _patched_dictConfig  # type: ignore[assignment]
+
+# Attach immediately at import time so we capture logs from the very first request.
+_reattach()
+
+
+def attach_log_handler() -> None:
+    """Public entry point kept for backwards compat — _reattach() now handles everything."""
+    _reattach()
+
+
+# ── SSE stream ─────────────────────────────────────────────────────────────────
 
 async def _event_stream() -> AsyncGenerator[str, None]:
     q: asyncio.Queue[dict] = asyncio.Queue(maxsize=200)
@@ -97,7 +122,6 @@ async def _event_stream() -> AsyncGenerator[str, None]:
 
 @router.get("/stream")
 async def stream_logs() -> StreamingResponse:
-    """Server-Sent Events stream of log entries as they arrive."""
     return StreamingResponse(
         _event_stream(),
         media_type="text/event-stream",
@@ -107,6 +131,17 @@ async def stream_logs() -> StreamingResponse:
 
 @router.get("/recent", response_model=list[LogEntry])
 async def recent_logs(limit: int = Query(default=200, ge=1, le=500)) -> list[dict]:
-    """Return the last N log entries as JSON. Used by the Streamlit frontend for polling."""
     entries = list(_ring_buffer)
     return entries[-limit:]
+
+
+@router.get("/debug")
+async def debug_logs() -> dict:
+    """Diagnostic endpoint — shows handler attachment state and buffer size."""
+    root = logging.getLogger()
+    return {
+        "handler_attached": _handler in root.handlers,
+        "root_handler_count": len(root.handlers),
+        "buffer_size": len(_ring_buffer),
+        "last_5": list(_ring_buffer)[-5:],
+    }
