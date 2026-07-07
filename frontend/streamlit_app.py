@@ -4,10 +4,7 @@ Entry point: streamlit run streamlit_app.py
 """
 from __future__ import annotations
 
-import time
-
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 
 import api_client
 from components.chat_panel import render_chat_panel
@@ -25,34 +22,26 @@ st.set_page_config(
 
 s = get_settings()
 
-# ── global auto-refresh — drives the log panel polling ────────────────────────
-# Triggers a full page rerun every N ms. Widget state is preserved across reruns,
-# so text inputs and forms are not disrupted.
 
-st_autorefresh(interval=s.log_stream_poll_interval_ms, key="global_refresh")
+@st.fragment(run_every=5)
+def _backend_banner() -> None:
+    ok = api_client.backend_healthy()
+    st.session_state.backend_ok = ok
+    if not ok:
+        st.error(
+            f"Backend not reachable at **{s.backend_url}**. "
+            "Start it with `uv run uvicorn app.main:app --reload` in the project root."
+        )
 
-# ── backend health — checked once per rerun, re-probed every 5 s ──────────────
 
-_now = time.time()
-if "backend_ok" not in st.session_state:
-    st.session_state.backend_ok = api_client.backend_healthy()
-    st.session_state.backend_check_ts = _now
-elif _now - st.session_state.get("backend_check_ts", 0) > 5:
-    st.session_state.backend_ok = api_client.backend_healthy()
-    st.session_state.backend_check_ts = _now
-
-if not st.session_state.backend_ok:
-    st.error(
-        f"Backend not reachable at **{s.backend_url}**. "
-        "Start it with `docker compose up backend` "
-        "or `uv run uvicorn app.main:app --reload` in the project root."
-    )
+_backend_banner()
 
 # ── sidebar ────────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    dot_color = "limegreen" if st.session_state.backend_ok else "#e05555"
-    status_label = "Reachable" if st.session_state.backend_ok else "Down"
+    ok = st.session_state.get("backend_ok", False)
+    dot_color = "limegreen" if ok else "#e05555"
+    status_label = "Reachable" if ok else "Down"
 
     st.markdown(
         f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'
