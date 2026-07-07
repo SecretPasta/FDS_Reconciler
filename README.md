@@ -23,22 +23,30 @@ python -m scripts.index_docs
 uv run uvicorn app.main:app --reload
 ```
 
-### Docker
+### Docker (recommended — starts both backend and frontend)
 
 ```bash
-# 1. Configure secrets (same as native — required before building)
+# 1. Configure secrets
 cp .env.example .env
 # Fill in ANTHROPIC_API_KEY, GEMINI_API_KEY, PINECONE_API_KEY
 
-# 2. Build the image and start the container
+# 2. Build and start both services
 docker compose up --build
-
-# 3. In a second terminal — run the containerized demo
-#    (passes /app/samples/* paths that exist inside the container)
-python scripts/containerized_demo.py
 ```
 
-The API is available at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
+| Service | URL |
+|---|---|
+| Backend API | http://localhost:8000 |
+| Interactive API docs | http://localhost:8000/docs |
+| Streamlit UI | http://localhost:8501 |
+
+The frontend container waits for the backend health check before starting.
+
+To run the containerized demo script (headless, exercises all endpoints):
+
+```bash
+python scripts/containerized_demo.py
+```
 
 ### Running the demo (local / native)
 
@@ -67,6 +75,41 @@ python scripts/demo_live.py --base-url http://localhost:8000 \
 Menu options: run `/compare`, show the cached top-10 summary, ask single-doc or cross-doc
 questions, and view match/diff/missing counts. Ctrl+C returns to the menu; `q` or Ctrl+D exits
 cleanly and prints the total number of API calls made during the session.
+
+> The demo scripts remain independent of the UI — they are useful headless evidence that the system works end-to-end, and can be run alongside or instead of the browser UI.
+
+---
+
+## Running the UI
+
+The Streamlit frontend lives in `frontend/` and runs as a separate service. It communicates with the backend exclusively over HTTP.
+
+### With Docker (easiest)
+
+```bash
+docker compose up --build
+# -> Backend: http://localhost:8000
+# -> Frontend: http://localhost:8501
+```
+
+### Standalone (local dev)
+
+```bash
+cd frontend
+uv sync
+cp .env.example .env
+# Edit .env: set BACKEND_URL and the COMPARISON_*_PATH vars to local absolute paths
+uv run streamlit run streamlit_app.py
+```
+
+See `frontend/README.md` for full configuration details.
+
+### What the UI provides
+
+- **Chat tab** — single-doc (V0 or V5) and cross-doc Q&A with answer cards, citation pills, timing badges, and insufficient-context warnings. Chat history persists in the session.
+- **Comparison tab** — one-click pipeline run or cached-summary load; MATCH / DIFF / MISSING stat cards; top-10 change expanders with colour-coded verdict badges.
+- **Live log panel** — shown alongside both tabs; polls `/logs/recent` every 2 s and displays real-time backend activity (category filter: retrieval / llm / pipeline / error).
+- **Sidebar** — green/red backend health indicator updated every 5 s.
 
 ---
 
@@ -174,6 +217,8 @@ samples/
 ```
 
 `app/deps.py` is the single wiring point — all concrete adapter types are instantiated there via `@lru_cache` singletons and injected via FastAPI `Depends`.
+
+This is now a **two-service system**: the `frontend/` Streamlit app runs as a separate process/container and communicates with the backend only via HTTP. There is no shared Python code between the two services — the frontend has its own domain models mirrored from the backend's API schemas.
 
 ---
 

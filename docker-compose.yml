@@ -1,6 +1,12 @@
+networks:
+  fds-net:
+    driver: bridge
+
 services:
-  api:
-    build: .
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     env_file:
@@ -9,9 +15,32 @@ services:
       - ./outputs:/app/outputs
       - ./samples:/app/samples
     restart: unless-stopped
+    networks:
+      - fds-net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs')"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      # Override so the frontend container reaches the backend by service name
+      BACKEND_URL: http://backend:8000
+      # Paths as seen by the backend container
+      COMPARISON_PDF_PATH: /app/samples/FDS_PriceBook_V0.pdf
+      COMPARISON_DOCX_PATH: /app/samples/FDS_PriceBook_V5.docx
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fds-net
