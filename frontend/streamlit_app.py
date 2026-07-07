@@ -1,6 +1,10 @@
 """FDS Reconciler — Streamlit frontend.
 
 Entry point: streamlit run streamlit_app.py
+
+Fragment rules: @st.fragment instances must be defined at module top-level so
+Streamlit assigns them stable identities. Fragments defined inside functions or
+called inside tab/column contexts lose that context when they auto-rerun.
 """
 from __future__ import annotations
 
@@ -21,7 +25,10 @@ st.set_page_config(
 )
 
 s = get_settings()
+_poll_s = max(1, s.log_stream_poll_interval_ms // 1000)
 
+
+# ── top-level fragments — stable identities, respect their render location ────
 
 @st.fragment(run_every=5)
 def _backend_banner() -> None:
@@ -33,6 +40,18 @@ def _backend_banner() -> None:
             "Start it with `uv run uvicorn app.main:app --reload` in the project root."
         )
 
+
+@st.fragment(run_every=_poll_s)
+def _log_panel_chat() -> None:
+    render_log_panel(key_suffix="chat")
+
+
+@st.fragment(run_every=_poll_s)
+def _log_panel_comparison() -> None:
+    render_log_panel(key_suffix="comparison")
+
+
+# ── backend health banner (top of page) ───────────────────────────────────────
 
 _backend_banner()
 
@@ -52,7 +71,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.caption(s.backend_url)
-
     st.divider()
 
     st.markdown("**Session**")
@@ -75,11 +93,11 @@ with tab_chat:
     with col_chat:
         render_chat_panel()
     with col_logs:
-        render_log_panel(key_suffix="chat")
+        _log_panel_chat()
 
 with tab_comparison:
     col_comp, col_logs2 = st.columns([0.65, 0.35])
     with col_comp:
         render_comparison_view()
     with col_logs2:
-        render_log_panel(key_suffix="comparison")
+        _log_panel_comparison()
